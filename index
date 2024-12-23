@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>감정 일기</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+
+        .card {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .emoji-section {
+            margin-bottom: 15px;
+        }
+
+        .emoji-category {
+            margin-bottom: 10px;
+        }
+
+        .category-title {
+            font-size: 14px;
+            color: #666;
+            margin-bottom: 5px;
+        }
+
+        .emoji-grid {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .emoji-btn {
+            font-size: 24px;
+            padding: 8px;
+            border: none;
+            background: none;
+            cursor: pointer;
+            border-radius: 4px;
+            transition: background-color 0.2s;
+        }
+
+        .emoji-btn:hover {
+            background: #f0f0f0;
+        }
+
+        .emoji-btn.selected {
+            background: #e0e0e0;
+        }
+
+        textarea {
+            width: 100%;
+            height: 100px;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            margin: 10px 0;
+            box-sizing: border-box;
+        }
+
+        .submit-btn {
+            width: 100%;
+            padding: 12px;
+            background: #4a90e2;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .submit-btn:disabled {
+            background: #ccc;
+        }
+
+        .stats-grid {
+            display: grid;
+            gap: 15px;
+        }
+
+        .month-stats {
+            border-bottom: 1px solid #eee;
+            padding-bottom: 15px;
+        }
+
+        .emotion-tag {
+            display: inline-flex;
+            align-items: center;
+            background: #f0f0f0;
+            padding: 4px 8px;
+            border-radius: 4px;
+            margin-right: 8px;
+            margin-bottom: 8px;
+        }
+
+        .location-info {
+            font-size: 12px;
+            color: #666;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <h2>감정 일기</h2>
+        <div id="emojiSelector" class="emoji-section"></div>
+        <div class="location-info" id="locationInfo">위치 정보를 불러오는 중...</div>
+        <textarea id="diaryText" placeholder="오늘의 감정을 기록해보세요..."></textarea>
+        <button id="submitBtn" class="submit-btn" disabled>기록하기</button>
+    </div>
+
+    <div class="card">
+        <h2>월간 감정 분석</h2>
+        <div id="monthlyStats" class="stats-grid"></div>
+    </div>
+
+    <script>
+        const emojis = {
+            '행복': ['😊', '🥰', '😍', '🤗', '😌'],
+            '슬픔': ['😢', '😭', '🥺', '😞', '😔'],
+            '화남': ['😡', '🤬', '😤', '😠', '😾'],
+            '피곤': ['😴', '🥱', '😪', '💤', '😫'],
+            '걱정': ['🤔', '😰', '😨', '😱', '😣'],
+            '기쁨': ['🥳', '🎉', '✨', '💫', '🌟'],
+            '사랑': ['❤️', '🥰', '💖', '💝', '💕'],
+            '평온': ['😌', '🧘', '🌸', '🍀', '☘️']
+        };
+
+        let selectedEmoji = '';
+        let userLocation = null;
+        let entries = JSON.parse(localStorage.getItem('diaryEntries')) || [];
+
+        // 이모지 선택기 생성
+        const emojiSelector = document.getElementById('emojiSelector');
+        Object.entries(emojis).forEach(([category, categoryEmojis]) => {
+            const categoryDiv = document.createElement('div');
+            categoryDiv.className = 'emoji-category';
+            
+            const titleDiv = document.createElement('div');
+            titleDiv.className = 'category-title';
+            titleDiv.textContent = category;
+            
+            const emojiGrid = document.createElement('div');
+            emojiGrid.className = 'emoji-grid';
+            
+            categoryEmojis.forEach(emoji => {
+                const button = document.createElement('button');
+                button.className = 'emoji-btn';
+                button.textContent = emoji;
+                button.onclick = () => {
+                    document.querySelectorAll('.emoji-btn').forEach(btn => 
+                        btn.classList.remove('selected'));
+                    button.classList.add('selected');
+                    selectedEmoji = emoji;
+                    updateSubmitButton();
+                };
+                emojiGrid.appendChild(button);
+            });
+            
+            categoryDiv.appendChild(titleDiv);
+            categoryDiv.appendChild(emojiGrid);
+            emojiSelector.appendChild(categoryDiv);
+        });
+
+        // 위치 정보 가져오기
+        if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(
+                (position) => {
+                    userLocation = {
+                        lat: position.coords.latitude,
+                        lng: position.coords.longitude
+                    };
+                    document.getElementById('locationInfo').textContent = '위치 정보가 기록됩니다';
+                },
+                (error) => {
+                    document.getElementById('locationInfo').textContent = '위치 정보를 가져올 수 없습니다';
+                }
+            );
+        }
+
+        // 제출 버튼 활성화 검사
+        function updateSubmitButton() {
+            const text = document.getElementById('diaryText').value;
+            document.getElementById('submitBtn').disabled = !selectedEmoji || !text;
+        }
+
+        document.getElementById('diaryText').addEventListener('input', updateSubmitButton);
+
+        // 일기 저장
+        document.getElementById('submitBtn').onclick = () => {
+            const text = document.getElementById('diaryText').value;
+            const entry = {
+                date: new Date().toISOString(),
+                emoji: selectedEmoji,
+                text: text,
+                location: userLocation
+            };
+            
+            entries.unshift(entry);
+            localStorage.setItem('diaryEntries', JSON.stringify(entries));
+            
+            selectedEmoji = '';
+            document.getElementById('diaryText').value = '';
+            document.querySelectorAll('.emoji-btn').forEach(btn => 
+                btn.classList.remove('selected'));
+            updateSubmitButton();
+            updateStats();
+        };
+
+        // 통계 업데이트
+        function updateStats() {
+            const monthlyStats = {};
+            entries.forEach(entry => {
+                const month = new Date(entry.date).toLocaleDateString('ko-KR', { 
+                    year: 'numeric', 
+                    month: 'long' 
+                });
+                if (!monthlyStats[month]) {
+                    monthlyStats[month] = { emotions: {}, locations: {} };
+                }
+                monthlyStats[month].emotions[entry.emoji] = 
+                    (monthlyStats[month].emotions[entry.emoji] || 0) + 1;
+                
+                if (entry.location) {
+                    const locationKey = `${entry.location.lat.toFixed(2)},${entry.location.lng.toFixed(2)}`;
+                    monthlyStats[month].locations[locationKey] = 
+                        (monthlyStats[month].locations[locationKey] || 0) + 1;
+                }
+            });
+
+            const statsContainer = document.getElementById('monthlyStats');
+            statsContainer.innerHTML = '';
+            
+            Object.entries(monthlyStats).forEach(([month, stats]) => {
+                const monthDiv = document.createElement('div');
+                monthDiv.className = 'month-stats';
+                
+                const monthTitle = document.createElement('h3');
+                monthTitle.textContent = month;
+                monthDiv.appendChild(monthTitle);
+                
+                const emotionsDiv = document.createElement('div');
+                Object.entries(stats.emotions).forEach(([emoji, count]) => {
+                    const tag = document.createElement('span');
+                    tag.className = 'emotion-tag';
+                    tag.textContent = `${emoji} ${count}회`;
+                    emotionsDiv.appendChild(tag);
+                });
+                monthDiv.appendChild(emotionsDiv);
+                
+                statsContainer.appendChild(monthDiv);
+            });
+        }
+
+        // 초기 통계 표시
+        updateStats();
+    </script>
+</body>
+</html>
